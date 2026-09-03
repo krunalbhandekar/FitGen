@@ -427,8 +427,6 @@ The app has **not** been deployed. These are the intended steps.
    real Vercel URL in `CLIENT_ORIGINS`.
 5. **Health check path:** `/api/health`.
 
-A [`render.yaml`](server/render.yaml) blueprint is included for Blueprint deploys.
-
 > **Free-tier cold starts.** Render idles instances after ~15 minutes, so the
 > first request after a pause takes 30–60 s. The client's timeout is 75 s and a
 > request in flight beyond 4 s shows a "waking the server" indicator, so this

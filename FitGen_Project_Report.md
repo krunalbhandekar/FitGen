@@ -15,7 +15,7 @@
 | **AI provider** | Groq (`openai/gpt-oss-120b`), free tier — optional at runtime |
 | **Core principle** | AI personalises; verified data and deterministic formulas supply every fact and figure |
 | **Seeded data** | 876 exercises · 129 foods · 38 knowledge-base entries |
-| **Deployment** | Steps written and a blueprint included; not yet deployed |
+| **Deployment** | Steps written; not yet deployed |
 
 **Companion documents**
 

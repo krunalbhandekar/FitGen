@@ -998,7 +998,7 @@ Stated plainly here; justified in full in
 | **One invented constant** | Mifflin–St Jeor defines no sex constant for users selecting "other". The midpoint (−78) is used and **disclosed to the user** in every computed target. |
 | **Sign-out is client-side** | JWTs are stateless with no server denylist, so a token stays valid until it expires (7 days). |
 | **No browser verification** | The UI was built to a responsive system and reviewed in code, but has not been confirmed in a browser across device widths. Three real interface defects were found only by using the app — none would have been caught by any automated check. |
-| **Not deployed** | Deployment steps are written and a Render blueprint is included, but the app has not been deployed. |
+| **Not deployed** | Deployment steps are written, but the app has not been deployed. |
 
 ---
 

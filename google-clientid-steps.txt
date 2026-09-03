@@ -1,0 +1,144 @@
+================================================================================
+FITGEN - GETTING A GOOGLE OAUTH CLIENT ID
+================================================================================
+
+Google sign-in is the ONLY way into FitGen, so the app cannot be used at all
+until this is done. It takes about five minutes and costs nothing.
+
+What you end up with is a single value - the Client ID - that goes into two
+files. There is no client secret to manage and no callback URL to register,
+because FitGen uses the Google Identity Services *token* flow: the browser
+receives a signed ID token directly from Google and posts it to the FitGen API,
+which verifies the signature itself. No redirect round-trip is involved.
+
+
+--------------------------------------------------------------------------------
+STEP 1 - Create a Google Cloud project
+--------------------------------------------------------------------------------
+Go to https://console.cloud.google.com
+
+Project dropdown (top-left) -> New Project -> name it "FitGen" -> Create.
+
+Then make sure FitGen is the SELECTED project before continuing. The dropdown
+does not always switch to a newly created project on its own, and configuring
+the wrong project is the most common way to lose time here.
+
+
+--------------------------------------------------------------------------------
+STEP 2 - Configure the consent screen
+--------------------------------------------------------------------------------
+In current console versions this is under "Google Auth Platform".
+In older versions: APIs & Services -> OAuth consent screen.
+
+  User type ............ External
+  App name ............. FitGen
+  Support email ........ your own address
+  Developer contact .... your own address
+
+  Scopes ............... nothing to add.
+
+    openid, email and profile are default, non-sensitive scopes. This is
+    precisely why FitGen needs no Google verification review - it never
+    requests access to Gmail, Drive, Calendar or anything else.
+
+  Audience / Test users  add your own Google account.
+
+    IMPORTANT: while the app is in "Testing" status, ONLY accounts on this
+    list can sign in. Everyone else gets "access blocked" with no useful
+    explanation. If a friend or examiner needs to try the app, add their
+    Google address here first.
+
+
+--------------------------------------------------------------------------------
+STEP 3 - Create the OAuth client
+--------------------------------------------------------------------------------
+Credentials -> Create Credentials -> OAuth client ID
+
+  Application type ..... Web application
+  Name ................. FitGen Web
+
+  Authorised JavaScript origins - add the origins the BROWSER loads the app
+  from (not the API):
+
+      http://localhost:5173              <- Vite dev server
+      https://your-app.vercel.app        <- add once you deploy
+
+  Authorised redirect URIs - LEAVE EMPTY.
+
+    FitGen has no callback route. If you are used to the server-side OAuth
+    flow this feels wrong, but adding a redirect URI here changes nothing and
+    omitting it breaks nothing.
+
+Click Create.
+
+
+--------------------------------------------------------------------------------
+STEP 4 - Copy the Client ID into both .env files
+--------------------------------------------------------------------------------
+The dialog shows a Client ID and a Client Secret.
+
+  Take the Client ID. It ends in .apps.googleusercontent.com
+  IGNORE the Client Secret. FitGen never uses it. Do not put it in any file.
+
+The SAME value goes into both places:
+
+    server/.env      GOOGLE_CLIENT_ID=<the id>
+    client/.env      VITE_GOOGLE_CLIENT_ID=<the id>
+
+They must match exactly. The server verifies that the token's "aud" claim
+equals its own GOOGLE_CLIENT_ID, so a mismatch fails every single sign-in with
+a generic error - and this is the hardest failure here to diagnose, because
+both halves look individually correct.
+
+Restart both dev servers afterwards. Vite reads .env only at startup and
+inlines the value at build time, so an edit without a restart appears to do
+nothing.
+
+
+--------------------------------------------------------------------------------
+VERIFY
+--------------------------------------------------------------------------------
+Both files should print the same id:
+
+    grep GOOGLE_CLIENT_ID server/.env
+    grep VITE_GOOGLE_CLIENT_ID client/.env
+
+Then open http://localhost:5173/login and sign in. On success you land on the
+onboarding wizard (first time) or the dashboard.
+
+
+--------------------------------------------------------------------------------
+TWO GOTCHAS WORTH KNOWING IN ADVANCE
+--------------------------------------------------------------------------------
+1. Origins need the scheme and NO trailing slash.
+
+       http://localhost:5173        correct
+       localhost:5173               rejected - no scheme
+       http://localhost:5173/       rejected - trailing slash
+
+2. Origin changes can take a few minutes to propagate. If you have just added
+   an origin and sign-in still fails, wait and retry before assuming the
+   configuration is wrong.
+
+
+--------------------------------------------------------------------------------
+IF SIGN-IN FAILS
+--------------------------------------------------------------------------------
+"Access blocked: This app's request is invalid"
+    The origin you are loading from is not in Authorised JavaScript origins.
+    Check the scheme and the trailing slash.
+
+"Access blocked" / "app is not verified" for someone else's account
+    The app is in Testing and that account is not on the Test users list.
+    Add it in Step 2.
+
+Sign-in popup succeeds, then the API returns 401
+    The two client IDs do not match, or the dev servers were not restarted
+    after editing .env. Run the two grep commands above and compare.
+
+Nothing happens when you click the button
+    Check the browser console. A missing or malformed VITE_GOOGLE_CLIENT_ID
+    stops the Google script from initialising.
+
+
+For everything else - database, seed data, first admin - see SETUP.md.

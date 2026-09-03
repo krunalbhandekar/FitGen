@@ -1,0 +1,238 @@
+================================================================================
+FITGEN - SEEDING THE PRODUCTION DATABASE
+================================================================================
+
+THE ONE THING TO UNDERSTAND FIRST
+--------------------------------------------------------------------------------
+Seeding targets a DATABASE, not an environment. There is no "dev mode" and
+"prod mode" for seed data.
+
+The Render server NEVER seeds itself. Nothing in the deploy pipeline runs the
+seeder - not `npm ci`, not `npm start`, not the health check. If you deploy to
+Render and the database is empty, it stays empty and the app will show empty
+exercise/food libraries and fail to generate plans.
+
+So the real question is only: does your production MONGO_URI point at the same
+database you are already using in dev, or a different one?
+
+Your current dev URI resolves to:   Atlas cluster, database "fitgen"
+That database currently holds:      876 exercises, 129 foods
+
+
+CASE A - PRODUCTION USES THE SAME DATABASE ("fitgen")
+--------------------------------------------------------------------------------
+Nothing to do. It is already seeded.
+
+Just paste the same MONGO_URI into Render's environment variables and the
+deployed server sees the same 876 exercises and 129 foods.
+
+Trade-off: your dev work and your live users share one database. Running
+`npm run seed -- --fresh` locally would wipe the live library, and test accounts
+appear alongside real ones. Fine for a demo; not how you would run something
+with real users.
+
+
+CASE B - PRODUCTION USES A SEPARATE DATABASE (recommended)
+--------------------------------------------------------------------------------
+Use a different database name on the same free Atlas cluster - no second cluster
+needed, and the free tier allows multiple databases.
+
+Take your existing URI and change the database name in the path:
+
+    ...mongodb.net/fitgen?retryWrites=true...          <- dev
+    ...mongodb.net/fitgen_prod?retryWrites=true...     <- production
+                    ^^^^^^^^^^^
+                    this segment is the database name
+
+You do NOT create it in Atlas first. MongoDB creates a database the moment
+something writes to it, so the seed run brings it into existence.
+
+Then follow the steps below.
+
+
+================================================================================
+STEPS (Case B)
+================================================================================
+
+STEP 1 - Put the production URI into Render
+--------------------------------------------------------------------------------
+Render dashboard -> your service -> Environment -> MONGO_URI
+Set it to the production URI (the one ending /fitgen_prod).
+Save. Render will redeploy.
+
+The server will boot fine against an empty database. It just has no content yet.
+
+
+STEP 2 - Allow Atlas to accept connections from Render
+--------------------------------------------------------------------------------
+Atlas -> Network Access -> Add IP Address -> "Allow access from anywhere"
+(0.0.0.0/0)
+
+Render's free tier has no static outbound IP, so there is no narrower rule you
+can write. This is a real security trade-off of the free tier: the database is
+reachable from any IP, and only the password protects it. Use a long random
+password.
+
+
+STEP 3 - Run the seeder from YOUR LAPTOP against the production URI
+--------------------------------------------------------------------------------
+This is the step people look for on the server and cannot find. You do not run
+it on Render. Atlas is reachable from anywhere, so you run it locally and point
+it at the production database.
+
+    cd server
+    MONGO_URI="mongodb+srv://USER:PASS@cluster.mongodb.net/fitgen_prod?retryWrites=true&w=majority" npm run seed
+
+Notes on that command:
+  - Wrap the URI in double quotes. It contains & and ? which your shell would
+    otherwise interpret.
+  - An inline variable like this OVERRIDES server/.env for that one command
+    only. Your .env file is not touched and your dev database is not affected.
+    (dotenv does not overwrite variables already present in the environment -
+    this is verified behaviour, not an assumption.)
+  - If the password contains @ : / ? # [ ] or %, it must be percent-encoded,
+    or the URI will not parse.
+
+Expected output, roughly:
+
+    [seed] starting (target=all, fresh=false)
+    [db] connected -> cluster0-shard-00-00.xxxxx.mongodb.net/fitgen_prod
+    [seed:exercises] downloading dataset...
+    [seed:exercises] received 876 records
+    [seed:exercises] done - 876 inserted, 0 updated, 0 skipped, 876 total
+    [seed:foods] preparing 129 curated records
+    [seed:foods] done - 129 inserted, 0 updated, 129 total
+    [seed] complete
+    [db] disconnected
+
+CHECK THE SECOND LINE. The connect log names the database it actually reached.
+If it says /fitgen instead of /fitgen_prod, your override did not take effect and
+you just wrote to your dev database. This one line prevents the most common
+mistake in this whole process.
+
+(876 and 129 are the counts as of today - checked against the live upstream
+dataset and src/data/foods.js. Upstream may grow over time.)
+
+The foods seeder may also print "macro drift warning(s)". Those are advisory:
+it cross-checks every stated calorie value against the 4/4/9 macro arithmetic
+and names anything outside a 15% band. Warnings do not stop the seed.
+
+The exercise seeder downloads from GitHub at run time:
+  https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json
+so this step needs internet access. The foods come from src/data/foods.js, which
+ships with the code.
+
+
+STEP 4 - Verify it landed
+--------------------------------------------------------------------------------
+Easiest: Atlas -> Browse Collections -> pick the fitgen_prod database. You should
+see `exercises` (876) and `foods` (129).
+
+Or hit the deployed API. Both routes need a token, so the honest check is to log
+in to the deployed site and open /exercises and /foods - if the lists populate,
+the seed worked.
+
+The health endpoint confirms the DB connection but NOT that data exists:
+
+    curl https://YOUR-APP.onrender.com/api/health
+
+
+STEP 5 - Promote your first admin
+--------------------------------------------------------------------------------
+A fresh database has zero administrators, and roles are only manageable from the
+admin UI - so nobody can grant the first one. Bootstrap it directly:
+
+  1. Sign in to the deployed site once with Google. This creates your user row.
+  2. Atlas -> Browse Collections -> fitgen_prod -> users -> find your email
+  3. Edit `role` from "user" to "admin"
+  4. Sign out and back in
+
+Full detail, including the guards you will run into, is in SETUP.md
+section 7, "Create the first administrator".
+
+
+================================================================================
+RE-RUNNING AND UPDATING
+================================================================================
+
+SAFE TO RE-RUN
+--------------------------------------------------------------------------------
+    npm run seed
+
+Both seeders upsert by `slug` in batches, so re-running updates existing records
+in place and inserts anything new. It does not duplicate. A second run reports
+"0 inserted, 876 updated" - verified, not assumed. Run it again whenever
+the upstream exercise dataset changes or you add foods to src/data/foods.js.
+
+IMPORTANT: re-running OVERWRITES admin edits. If an administrator edited an
+exercise through the /admin panel and that slug also exists upstream, the seeder
+will $set it back to the upstream values. Admin-created records with new slugs
+are left alone, because upstream has no matching slug.
+
+DESTRUCTIVE - THINK FIRST
+--------------------------------------------------------------------------------
+    npm run seed -- --fresh
+
+Deletes every document in both collections, then re-seeds. Against production
+this also breaks stored plans: every generated plan and workout log references
+exercises and foods by slug, and the grounding layer silently drops slugs it
+cannot find. Users would see their saved plans quietly get shorter, with no
+error message anywhere. Do not use --fresh on a database that has real users.
+
+PARTIAL
+--------------------------------------------------------------------------------
+    npm run seed:exercises      # exercises only
+    npm run seed:foods          # foods only (no download needed)
+
+
+================================================================================
+WHAT NOT TO DO
+================================================================================
+
+DO NOT add the seeder to Render's buildCommand or startCommand.
+  It would re-download 876 records and rewrite both collections on every single
+  deploy - overwriting admin edits each time, slowing every build, and making a
+  GitHub outage able to fail your deploy. Seeding is a one-off setup task, not
+  part of the release.
+
+DO NOT look for a Render shell to run it in.
+  Render's free plan has no shell access and no one-off jobs; both are paid
+  features. Running the seeder from your laptop against the production URI
+  (Step 3) is the correct approach, not a workaround.
+
+DO NOT commit the production URI.
+  It carries the database password. It belongs in Render's environment variables
+  and in your shell history at worst - never in the repo. server/.env is
+  gitignored; keep it that way.
+
+
+================================================================================
+IF IT FAILS
+================================================================================
+
+"Invalid scheme, expected connection string to start with mongodb://"
+    The URI was mangled - usually an unquoted shell command breaking at & or ?.
+    Wrap the whole URI in double quotes.
+
+"Authentication failed"
+    Wrong password, or an unencoded special character in it. Percent-encode
+    @ : / ? # [ ] and %.
+
+"Could not connect to any servers in your MongoDB Atlas cluster"
+    Network Access does not allow your current IP. Add it, or 0.0.0.0/0
+    (Step 2).
+
+"Failed to download exercise dataset (HTTP 404)"
+    The upstream repo moved the file. DATASET_URL is at the top of
+    server/src/seed/seedExercises.js. Foods still seed fine - they are local:
+        npm run seed:foods
+
+Seed says "complete" but the app shows empty lists
+    Almost certainly seeded the wrong database. Check that the database name in
+    the URI you seeded matches the one in Render's MONGO_URI exactly - "fitgen"
+    and "fitgen_prod" are different databases on the same cluster, and a typo
+    silently creates a third.
+
+
+For everything else - install, Google sign-in, admin and user setup - see
+SETUP.md.

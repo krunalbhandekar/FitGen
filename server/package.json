@@ -1,0 +1,44 @@
+{
+  "name": "fitgen-server",
+  "version": "1.0.0",
+  "description": "FitGen API — AI Smart Workout & Macro Diet Generator",
+  "type": "module",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "seed": "node src/seed/index.js",
+    "seed:exercises": "node src/seed/index.js --only=exercises",
+    "seed:foods": "node src/seed/index.js --only=foods",
+    "test:auth": "node --experimental-test-module-mocks --no-warnings tests/auth.test.mjs",
+    "test:calc": "node tests/fitnessCalc.test.mjs",
+    "test": "npm run test:calc && npm run test:progression && npm run test:retrieval && npm run test:budget && npm run test:grounding && npm run test:chat && npm run test:auth && npm run test:profile && npm run test:generation && npm run test:plans && npm run test:logs && npm run test:adminusers && npm run test:phase6",
+    "test:profile": "node --experimental-test-module-mocks --no-warnings tests/profile.test.mjs",
+    "test:generation": "node tests/generation.test.mjs",
+    "test:plans": "node --experimental-test-module-mocks --no-warnings tests/plans.test.mjs",
+    "test:budget": "node --experimental-test-module-mocks --no-warnings tests/promptBudget.test.mjs",
+    "test:grounding": "node --experimental-test-module-mocks --no-warnings tests/grounding.test.mjs",
+    "test:progression": "node tests/progression.test.mjs",
+    "test:logs": "node --experimental-test-module-mocks --no-warnings tests/logs.test.mjs",
+    "test:retrieval": "node tests/retrieval.test.mjs",
+    "test:chat": "node --experimental-test-module-mocks --no-warnings tests/chat.test.mjs",
+    "test:adminusers": "node --experimental-test-module-mocks --no-warnings tests/adminUsers.test.mjs",
+    "test:phase6": "node --experimental-test-module-mocks --no-warnings tests/phase6.test.mjs"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "google-auth-library": "^9.15.1",
+    "groq-sdk": "^1.6.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.9.5",
+    "morgan": "^1.10.0",
+    "zod": "^4.5.4"
+  }
+}

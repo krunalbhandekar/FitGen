@@ -8,8 +8,8 @@ import routes from './routes/index.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 /**
- * Turns a configured origin into a matcher. A leading `*.` wildcard is
- * supported so one entry can cover every Vercel preview deployment
+ * Turns the configured origin into a matcher. A leading `*.` wildcard is
+ * supported so the single entry can cover every Vercel preview deployment
  * (e.g. `https://*.vercel.app`).
  */
 const toMatcher = (pattern) => {
@@ -29,13 +29,13 @@ const buildApp = () => {
 
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
-  const matchers = env.clientOrigins.map(toMatcher);
+  const matchesClientOrigin = toMatcher(env.clientOrigin);
   app.use(
     cors({
       origin(origin, callback) {
         // Server-to-server calls and health checks send no Origin header.
         if (!origin) return callback(null, true);
-        if (matchers.some((match) => match(origin))) return callback(null, true);
+        if (matchesClientOrigin(origin)) return callback(null, true);
         return callback(new Error(`Origin not allowed by CORS: ${origin}`));
       },
       methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],

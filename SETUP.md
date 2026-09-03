@@ -114,7 +114,7 @@ Now edit `server/.env`:
 | `JWT_SECRET` | ✅ | Generate a real one — see the warning below. |
 | `GOOGLE_CLIENT_ID` | ✅ | From §2. |
 | `PORT` | | Defaults to `5000`. **On macOS use `5001`** — see the note below. |
-| `CLIENT_ORIGINS` | | Comma-separated browser origins allowed to call the API. Defaults cover localhost. |
+| `CLIENT_ORIGIN` | | The one browser origin allowed to call the API. Defaults to localhost. |
 | `GROQ_API_KEY` | | Optional. Omit to run entirely on the rule-based engine. |
 | `GROQ_MODEL` | | Optional. Defaults to `openai/gpt-oss-120b`. |
 | `JWT_EXPIRES_IN` | | Defaults to `7d`. |
@@ -424,7 +424,7 @@ The app has **not** been deployed. These are the intended steps.
 2. Render → **New → Web Service** → pick the repo.
 3. **Root directory** `server`, build `npm ci`, start `npm start`.
 4. Add the environment variables from §4. Set `NODE_ENV=production` and put your
-   real Vercel URL in `CLIENT_ORIGINS`.
+   real Vercel URL in `CLIENT_ORIGIN`.
 5. **Health check path:** `/api/health`.
 
 > **Free-tier cold starts.** Render idles instances after ~15 minutes, so the
@@ -446,7 +446,7 @@ client-side routes survive a hard refresh.
 ### Post-deploy checklist
 
 - [ ] Vercel URL added to Google's **Authorised JavaScript origins**
-- [ ] Vercel URL added to `CLIENT_ORIGINS` on Render
+- [ ] Vercel URL set as `CLIENT_ORIGIN` on Render
 - [ ] `VITE_API_URL` points at Render — no trailing slash, no `/api`
 - [ ] Atlas **Network Access** allows `0.0.0.0/0` (Render's free tier has no
       static outbound IP, so no narrower rule is possible — use a long random

@@ -10,7 +10,7 @@ const start = async () => {
     console.log(
       `[server] FitGen API listening on :${env.port} (${env.nodeEnv})`,
     );
-    console.log(`[server] allowed origins → ${env.clientOrigins.join(", ")}`);
+    console.log(`[server] allowed origin → ${env.clientOrigin}`);
   });
 
   const shutdown = (signal) => async () => {

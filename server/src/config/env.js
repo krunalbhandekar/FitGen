@@ -16,12 +16,6 @@ const read = (key, { required = false, fallback = undefined } = {}) => {
   return value;
 };
 
-const parseList = (value) =>
-  (value ?? '')
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-
 export const env = {
   nodeEnv: read('NODE_ENV', { fallback: 'development' }),
   port: Number(read('PORT', { fallback: 5000 })),
@@ -33,10 +27,11 @@ export const env = {
 
   googleClientId: read('GOOGLE_CLIENT_ID', { required: true }),
 
-  // Comma-separated list of allowed browser origins (Vercel URL + localhost).
-  clientOrigins: parseList(
-    read('CLIENT_ORIGINS', { fallback: 'http://localhost:5173' }),
-  ),
+  // The single allowed browser origin (the deployed frontend). A leading `*.`
+  // wildcard is supported so one entry covers every Vercel preview deployment.
+  clientOrigin: read('CLIENT_ORIGIN', {
+    fallback: 'http://localhost:5173',
+  }).trim(),
 
   // AI generation (Phase 3). Optional: without a key the plan generators fall
   // back to their deterministic builders rather than failing.
